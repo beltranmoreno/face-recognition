@@ -55,7 +55,7 @@ while True:
 
         # Draw a box around the face and label it with the person's name
         cv2.rectangle(frame, (left, top), (right, bottom), (0, 0, 255), 2)
-        cv2.putText(frame, label, (left, top - 6), cv2.FONT_HERSHEY_SIMPLEX, 0.5, (0, 0, 255), 1)
+        cv2.putText(frame, label, (left, top - 6), cv2.FONT_HERSHEY_SIMPLEX, 1, (0, 0, 255), 2)
 
     # Resize the frame
     max_width = 500
