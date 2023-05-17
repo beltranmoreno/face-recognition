@@ -2,10 +2,14 @@ from flask import Flask, Response
 import cv2
 import face_recognition
 import os
-
+from flask_restful import Api, Resource
+from flask_cors import CORS
+import time
 
 
 app = Flask(__name__)
+cors = CORS(app)
+api = Api(app)
 
 @app.route('/')
 def index():
@@ -20,10 +24,34 @@ def generate_frames():
             break
         else:
             ret, buffer = cv2.imencode('.jpg', frame)
+            frame_bytes = buffer.tobytes()
+            yield (b'--frame\r\n'
+                   b'Content-Type: image/jpeg\r\n'
+                   b'Content-Length: ' + str(len(frame_bytes)).encode() + b'\r\n'
+                   b'\r\n' + frame_bytes + b'\r\n')
+        time.sleep(0.01)  # Adjust the delay between frames as needed
+
+    cap.release()
+
+def generate_frames2():
+    cap = cv2.VideoCapture(0)
+    # Define the output video parameters
+    fourcc = cv2.VideoWriter_fourcc(*'mp4v')
+    out = cv2.VideoWriter('video_output.mp4', fourcc, 20.0, (640, 480))
+
+    while True:
+        success, frame = cap.read()
+        if not success:
+            break
+        else:
+            out.write(frame)  # Write the frame to the video file
+            ret, buffer = cv2.imencode('.jpg', frame)
             frame = buffer.tobytes()
             yield (b'--frame\r\n'
                    b'Content-Type: image/jpeg\r\n\r\n' + frame + b'\r\n')
 
+    cap.release()
+    out.release()
 
 def generate_feed():
     # Path to the directory containing the face images
@@ -113,6 +141,18 @@ def camera_feed():
 def video_feed():
     return Response(generate_feed(), mimetype='multipart/x-mixed-replace; boundary=frame')
 
+class HelloWorld(Resource):
+    def get(self):
+        return Response(generate_frames(), mimetype='multipart/x-mixed-replace; boundary=frame')
+    
+api.add_resource(HelloWorld, '/videos')
+
+class Test(Resource):
+    def get(self):
+        return {'hello': 'world'}
+
+    
+api.add_resource(Test, '/test')
 
 if __name__ == '__main__':
     app.run(debug=True)
