@@ -30,9 +30,8 @@ if not os.path.isdir(path):
 face_cascade = cv2.CascadeClassifier(haar_file)
 webcam = cv2.VideoCapture(0) 
   
-# The program loops until it has 100 images of the face.
 count = 1
-numPics = 100
+numPics = 5
 while count < numPics: 
     (_, im) = webcam.read()
     gray = cv2.cvtColor(im, cv2.COLOR_BGR2GRAY)
@@ -45,8 +44,8 @@ while count < numPics:
         face_resize = cv2.resize(face, (width, height))
         cv2.imwrite('% s/% s.png' % (path, count), face_resize)
     count += 1
-      
+        
     cv2.imshow('OpenCV', im)
     key = cv2.waitKey(10)
     if key == 27:
-        break
+            break

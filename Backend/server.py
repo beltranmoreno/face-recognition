@@ -1,10 +1,11 @@
-from flask import Flask, Response
+from flask import Flask, Response, jsonify
 import cv2
 import face_recognition
 import os
 from flask_restful import Api, Resource
 from flask_cors import CORS
 import time
+import base64
 
 
 app = Flask(__name__)
@@ -133,6 +134,71 @@ def generate_feed():
         yield (b'--frame\r\n'
             b'Content-Type: image/jpeg\r\n\r\n' + frame + b'\r\n')
 
+Frame = None
+def get_names():
+    # Path to the directory containing the face images
+    dataset_path = "datasets_live"
+
+    # List all the subdirectories in the dataset directory
+    person_names = os.listdir(dataset_path)
+
+    # Initialize arrays to store the face encodings and labels
+    known_face_encodings = []
+    known_face_labels = []
+
+    # Loop through each person's directory
+    for person_name in person_names:
+        # Create the full path to the person's directory
+        person_dir = os.path.join(dataset_path, person_name)
+        # Loop through all the image files in the person's directory
+        for filename in os.listdir(person_dir):
+            # Create the full path to the image file
+            image_path = os.path.join(person_dir, filename)
+            # Load the image file into a numpy array
+            image = face_recognition.load_image_file(image_path)
+            # Find the face encoding for the image
+            face_encoding = face_recognition.face_encodings(image)[0]
+            # Add the face encoding and label to the arrays
+            known_face_encodings.append(face_encoding)
+            known_face_labels.append(person_name)
+
+    # Initialize the video capture object
+    video_capture = cv2.VideoCapture(0)
+    i = 0
+    label = "Unknown"
+    found_match = False 
+    # Loop 50
+    global Frame
+    while i < 50 and not found_match:
+        # Grab a single frame of video
+        ret, Frame = video_capture.read()
+
+        # Find all the faces and face encodings in the current frame of video
+        face_locations = face_recognition.face_locations(Frame)
+        face_encodings = face_recognition.face_encodings(Frame, face_locations)
+        # Loop through each face in the current frame of video
+        for (top, right, bottom, left), face_encoding in zip(face_locations, face_encodings):
+            # Try to match the face with a known person
+            matches = face_recognition.compare_faces(known_face_encodings, face_encoding)
+
+            # If a match was found, use the first match and get the label
+            if True in matches:
+                first_match_index = matches.index(True)
+                label = known_face_labels[first_match_index]
+                # print(label)
+                found_match = True 
+                break
+        i += 1
+    
+    return str(label)
+
+def get_frame():
+    global Frame
+    ret, buffer = cv2.imencode('.jpg', Frame)
+    img_base64 = base64.b64encode(buffer).decode('utf-8')
+    return (img_base64)
+
+
 @app.route('/camera')
 def camera_feed():
     return Response(generate_frames(), mimetype='multipart/x-mixed-replace; boundary=frame')
@@ -149,10 +215,22 @@ api.add_resource(HelloWorld, '/videos')
 
 class Test(Resource):
     def get(self):
-        return {'hello': 'world'}
+        names = get_names()
+        # print(names)
+        data = {'names' : names }
+        json_data = jsonify(data)
+        return json_data
 
     
 api.add_resource(Test, '/test')
+
+class GetFrame(Resource):
+    def get(self):
+        frame = get_frame()
+        json_data = {'frame' : frame}
+        return json_data
+    
+api.add_resource(GetFrame, '/frame')
 
 if __name__ == '__main__':
     app.run(debug=True)
